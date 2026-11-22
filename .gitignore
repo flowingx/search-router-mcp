@@ -1,0 +1,4 @@
+/search-keys.env.local
+/zhihu-state/
+/__pycache__/
+*.py[cod]

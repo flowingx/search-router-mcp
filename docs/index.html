@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="配置 Search Router MCP，将 Tavily、Keenable、知乎和 Serper 接入你的 Agent。">
+  <title>Search Router MCP · 配置与验收</title>
+  <style>
+    :root{color-scheme:light;--ink:#20282a;--muted:#4b5a5d;--accent:#075e54;--paper:#f6f7f2;--line:#d8dfd9;--code:#e8efe9}
+    *{box-sizing:border-box}
+    [hidden]{display:none!important}
+    body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,sans-serif}
+    header,main,footer{max-width:930px;margin:auto;padding-inline:clamp(20px,5vw,56px)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:24px;border-bottom:1px solid var(--line)}
+    header span{font-weight:700}
+    a{color:var(--accent);text-underline-offset:.2em}
+    main{padding-block:55px 28px}
+    h1{font-size:clamp(2.3rem,7vw,4.2rem);line-height:1.04;letter-spacing:-.05em;margin:0 0 20px}
+    h2{margin:0 0 12px;font-size:1.42rem;line-height:1.25}
+    p{margin:0 0 14px}
+    .summary{max-width:60ch;font-size:1.08rem;color:var(--muted)}
+    section{border-top:1px solid var(--line);margin-top:30px;padding-top:24px}
+    .actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:20px}
+    button,.primary{display:inline-block;background:var(--accent);color:white;border:1px solid var(--accent);border-radius:5px;padding:8px 14px;font:inherit;text-decoration:none;cursor:pointer}
+    button:focus-visible,a:focus-visible{outline:3px solid #c07635;outline-offset:3px}
+    .credentials{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 20px;list-style:none;padding:0;margin:14px 0}
+    .credentials li{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+    pre{margin:10px 0 15px;padding:14px 16px;background:var(--code);border-radius:5px;overflow-x:auto;font-size:.9rem}
+    code{font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+    pre code{overflow-wrap:normal}
+    #copy-status{min-height:1.65em;color:var(--muted);margin-top:5px}
+    footer{border-top:1px solid var(--line);padding-block:19px 26px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header><span>Search Router MCP</span><a href="https://github.com/flowingx/search-router-mcp">GitHub 仓库</a></header>
+  <main>
+    <h1>配置与验收</h1>
+    <p class="summary">把 Tavily、Keenable、知乎和 Serper 接入同一个本地 MCP。Agent 根据查询主题选择平台，路由器结合额度处理回退。</p>
+    <div class="actions"><a class="primary" href="agent-setup.md">打开 Agent 提示词</a><a href="#setup">手动配置</a></div>
+
+    <section id="setup">
+      <h2>1. 下载并准备密钥</h2>
+      <p>安装 <a href="https://www.python.org/downloads/">Python 3.12+</a>。使用知乎时再安装 <a href="https://docs.astral.sh/uv/getting-started/installation/">uvx</a>。</p>
+      <pre><code>git clone https://github.com/flowingx/search-router-mcp.git
+cd search-router-mcp</code></pre>
+      <p>首次配置时，把 <code>search-keys.env.example</code> 复制为 <code>search-keys.env.local</code>，在本机编辑器填写要启用的服务。已有密钥文件时直接编辑。</p>
+      <ul class="credentials">
+        <li><a href="https://app.tavily.com/">Tavily</a><code>TAVILY_API_KEY</code></li>
+        <li><a href="https://app.keenable.ai/">Keenable</a><code>KEENABLE_API_KEY</code></li>
+        <li><a href="https://developer.zhihu.com/">知乎</a><code>ZHIHU_ACCESS_SECRET</code></li>
+        <li><a href="https://serper.dev/">Serper</a><code>SERPER_API_KEY</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>2. 生成客户端配置</h2>
+      <pre><code>python verify.py
+python verify.py --print-config</code></pre>
+      <p>第一条命令检查 MCP 握手和工具发现。第二条命令按本机路径生成配置，把输出合并到 Codex 的 <code>~/.codex/config.toml</code>，然后重启 Codex。系统只提供 <code>python3</code> 时，替换命令里的 <code>python</code>。</p>
+    </section>
+
+    <section>
+      <h2>3. 让 Agent 生成问题并验收</h2>
+      <p>可先用脚本查询状态或试搜。真实搜索可能消耗平台额度。</p>
+      <pre><code>python verify.py --status
+python verify.py --check auto "替换成你的测试问题"</code></pre>
+      <p>脚本通过后，把下面的提示词发给 Agent，让它直接调用已注册的 MCP，逐家验证并报告实际平台、状态和来源链接。</p>
+      <button type="button" id="copy" hidden>复制 Agent 提示词</button>
+      <a href="agent-setup.md" id="prompt-link">查看提示词全文</a>
+      <p id="copy-status" role="status"></p>
+    </section>
+  </main>
+  <footer><a href="https://github.com/flowingx/search-router-mcp">项目说明和源码</a></footer>
+  <script>
+    const button = document.querySelector('#copy');
+    const link = document.querySelector('#prompt-link');
+    const status = document.querySelector('#copy-status');
+    if (navigator.clipboard) {
+      button.hidden = false;
+      button.addEventListener('click', async () => {
+        try {
+          const response = await fetch(link.href);
+          if (!response.ok) throw new Error('Failed to load prompt');
+          const documentText = await response.text();
+          const prompt = documentText.split(/\r?\n---\r?\n/)[1];
+          if (!prompt) throw new Error('Prompt is empty');
+          await navigator.clipboard.writeText(prompt.trim());
+          status.textContent = '提示词已复制。';
+        } catch {
+          status.textContent = '复制失败，请打开提示词全文后手动复制。';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
